@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ส่งงาน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sarabun','sans-serif'] } } } }</script>
+  <style>
+    body { font-family: 'Sarabun', sans-serif; }
+    .btn-confirm {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      transition: all 0.15s ease;
+    }
+    .btn-confirm:active { transform: scale(0.97); }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-emerald-100 min-h-screen flex items-center justify-center p-4">
+
+  <div class="w-full max-w-sm">
+
+    {% if task.status == 'done' %}
+    <!-- Already done -->
+    <div class="bg-white rounded-3xl shadow-lg p-8 text-center">
+      <div class="text-6xl mb-4">✅</div>
+      <h1 class="text-xl font-bold text-gray-800 mb-2">ส่งงานแล้วค่ะ</h1>
+      <p class="text-gray-500 text-sm">งานนี้ถูกบันทึกว่าเสร็จแล้วค่ะ</p>
+    </div>
+
+    {% elif task.status == 'cancelled' %}
+    <!-- Cancelled -->
+    <div class="bg-white rounded-3xl shadow-lg p-8 text-center">
+      <div class="text-6xl mb-4">❌</div>
+      <h1 class="text-xl font-bold text-gray-800 mb-2">งานถูกยกเลิกแล้ว</h1>
+      <p class="text-gray-500 text-sm">งานนี้ถูกยกเลิกแล้วค่ะ</p>
+    </div>
+
+    {% else %}
+    <!-- Pending - show confirm button -->
+    <div class="bg-white rounded-3xl shadow-lg overflow-hidden">
+
+      <!-- Top accent -->
+      <div class="h-1.5 bg-gradient-to-r from-green-400 to-emerald-500"></div>
+
+      <div class="p-6">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">งานที่ต้องส่ง</p>
+        <h1 class="text-2xl font-bold text-gray-900 mb-3 leading-snug">{{ task.title }}</h1>
+
+        {% if task.description %}
+        <p class="text-gray-500 text-sm leading-relaxed mb-4 bg-gray-50 rounded-xl p-3">
+          {{ task.description }}
+        </p>
+        {% endif %}
+
+        <div class="flex items-center gap-4 text-xs text-gray-400 mb-6">
+          <span>👤 {{ task.staff_name }}</span>
+          <span>📅 {{ task.created_at[:10] | replace("-", "/") }}</span>
+        </div>
+
+        <form method="post" action="/confirm/{{ task.confirm_token }}">
+          <button type="submit" class="btn-confirm w-full text-white font-bold text-lg rounded-2xl py-4 shadow-md">
+            ✅ ส่งงานแล้ว
+          </button>
+        </form>
+
+        <p class="text-center text-xs text-gray-400 mt-3">
+          กดปุ่มเพื่อแจ้งว่างานเสร็จแล้ว จะหยุดการตามงานทันที
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</body>
+</html>

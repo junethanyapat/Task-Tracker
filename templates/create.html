@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>มอบหมายงานใหม่</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sarabun','sans-serif'] } } } }</script>
+  <style>body { font-family: 'Sarabun', sans-serif; }</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <header class="bg-white border-b border-gray-200">
+    <div class="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+      <a href="/" class="text-gray-400 hover:text-gray-600 text-xl leading-none">←</a>
+      <h1 class="text-lg font-bold text-gray-900">มอบหมายงานใหม่</h1>
+    </div>
+  </header>
+
+  <div class="max-w-lg mx-auto px-4 py-6">
+    {% if staff %}
+    <form method="post" action="/tasks" class="space-y-5">
+
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">ชื่องาน <span class="text-red-400">*</span></label>
+          <input type="text" name="title" required placeholder="เช่น ส่งรายงานยอดขาย"
+            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">รายละเอียดเพิ่มเติม</label>
+          <textarea name="description" rows="3" placeholder="(ถ้ามี)"
+            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">มอบหมายให้ <span class="text-red-400">*</span></label>
+          <select name="assigned_to" required
+            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+            <option value="" disabled selected>เลือกน้อง</option>
+            {% for s in staff %}
+              <option value="{{ s.id }}">{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">ตามงานทุกกี่ชั่วโมง <span class="text-red-400">*</span></label>
+          <div class="grid grid-cols-4 gap-2">
+            {% for h in [1, 2, 4, 8] %}
+            <label class="cursor-pointer">
+              <input type="radio" name="interval_hours" value="{{ h }}" class="sr-only peer" {% if h == 2 %}checked{% endif %}>
+              <div class="text-center border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-600
+                          peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-700 transition-all">
+                {{ h }} ชม.
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+          <div class="mt-2 flex items-center gap-2">
+            <label class="text-sm text-gray-500">หรือกำหนดเอง:</label>
+            <input type="number" name="interval_hours" min="0.5" max="72" step="0.5" placeholder="ชม."
+              class="w-24 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              onclick="document.querySelectorAll('[name=interval_hours]').forEach(r=>r.checked=false)" />
+          </div>
+        </div>
+      </div>
+
+      <button type="submit"
+        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl py-3.5 transition-colors shadow-sm">
+        📤 ส่งงานให้น้อง
+      </button>
+
+    </form>
+
+    {% else %}
+    <div class="bg-white rounded-2xl shadow-sm border border-yellow-200 p-6 text-center">
+      <div class="text-4xl mb-3">⚠️</div>
+      <p class="font-semibold text-gray-800 mb-1">ยังไม่มีน้องที่ลงทะเบียนแล้ว</p>
+      <p class="text-sm text-gray-500 mb-4">ต้องเพิ่มน้องและให้น้อง Add LINE OA ก่อนนะคะ</p>
+      <a href="/staff" class="inline-block bg-indigo-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors">
+        ไปจัดการน้อง →
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+</body>
+</html>

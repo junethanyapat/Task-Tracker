@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ส่งงานแล้ว! ✅</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sarabun','sans-serif'] } } } }</script>
+  <style>
+    body { font-family: 'Sarabun', sans-serif; }
+    @keyframes pop {
+      0% { transform: scale(0.5); opacity: 0; }
+      70% { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pop { animation: pop 0.4s ease forwards; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-emerald-100 min-h-screen flex items-center justify-center p-4">
+
+  <div class="w-full max-w-sm">
+    <div class="bg-white rounded-3xl shadow-lg p-8 text-center">
+
+      <div class="pop text-7xl mb-4">🎉</div>
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">ส่งงานเรียบร้อยค่ะ!</h1>
+      <p class="text-gray-500 text-sm mb-4">
+        ระบบหยุดตามงานแล้ว<br>เจ้านายได้รับการแจ้งเตือนแล้วด้วยนะคะ 😊
+      </p>
+
+      {% if task %}
+      <div class="bg-green-50 rounded-2xl p-3 text-sm text-green-800">
+        <span class="font-semibold">{{ task.title }}</span>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+</body>
+</html>

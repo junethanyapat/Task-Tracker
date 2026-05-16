@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบตามงาน</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Sarabun', 'sans-serif'] } } }
+    }
+  </script>
+  <style>
+    body { font-family: 'Sarabun', sans-serif; }
+    .badge-pending  { background: #fef9c3; color: #854d0e; }
+    .badge-done     { background: #dcfce7; color: #166534; }
+    .badge-cancelled{ background: #f3f4f6; color: #6b7280; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg font-bold text-gray-900">📋 ระบบตามงาน</h1>
+        <p class="text-xs text-gray-400">LINE Task Tracker</p>
+      </div>
+      <a href="/staff" class="text-sm text-indigo-600 font-medium hover:text-indigo-800">
+        👥 จัดการน้อง
+      </a>
+    </div>
+  </header>
+
+  <div class="max-w-3xl mx-auto px-4 py-6">
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-center">
+        <div class="text-3xl font-bold text-yellow-500">{{ pending_count }}</div>
+        <div class="text-sm text-gray-500 mt-1">รอส่งงาน</div>
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-center">
+        <div class="text-3xl font-bold text-green-500">{{ done_count }}</div>
+        <div class="text-sm text-gray-500 mt-1">ส่งแล้ว</div>
+      </div>
+    </div>
+
+    <!-- Assign button -->
+    <a href="/create"
+       class="flex items-center justify-center gap-2 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl py-3.5 mb-6 transition-colors shadow-sm">
+      <span class="text-lg">＋</span> มอบหมายงานใหม่
+    </a>
+
+    <!-- Task list -->
+    {% if tasks %}
+      <div class="space-y-3">
+        {% for task in tasks %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="font-semibold text-gray-900 truncate">{{ task.title }}</span>
+                {% if task.status == 'pending' %}
+                  <span class="badge-pending text-xs px-2 py-0.5 rounded-full font-medium shrink-0">รอส่ง</span>
+                {% elif task.status == 'done' %}
+                  <span class="badge-done text-xs px-2 py-0.5 rounded-full font-medium shrink-0">✓ ส่งแล้ว</span>
+                {% else %}
+                  <span class="badge-cancelled text-xs px-2 py-0.5 rounded-full font-medium shrink-0">ยกเลิก</span>
+                {% endif %}
+              </div>
+
+              {% if task.description %}
+                <p class="text-sm text-gray-500 mb-2 line-clamp-2">{{ task.description }}</p>
+              {% endif %}
+
+              <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+                <span>👤 {{ task.staff_name }}</span>
+                <span>⏱ ทุก {{ task.interval_hours | int if task.interval_hours == task.interval_hours | int else task.interval_hours }} ชั่วโมง</span>
+                {% if task.reminder_count > 0 %}
+                  <span>🔔 ตาม {{ task.reminder_count }} ครั้ง</span>
+                {% endif %}
+                {% if task.completed_at %}
+                  <span>✅ {{ task.completed_at[:16] | replace("T", " ") }}</span>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if task.status == 'pending' %}
+            <form method="post" action="/tasks/{{ task.id }}/cancel"
+                  onsubmit="return confirm('ยกเลิกงานนี้ไหมคะ?')">
+              <button class="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none mt-0.5" title="ยกเลิก">✕</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-center text-gray-400 py-16">
+        <div class="text-5xl mb-3">📭</div>
+        <p class="text-sm">ยังไม่มีงานที่มอบหมาย</p>
+        <p class="text-xs mt-1">กด "มอบหมายงานใหม่" เพื่อเริ่ม</p>
+      </div>
+    {% endif %}
+
+  </div>
+</body>
+</html>
