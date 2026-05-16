@@ -260,6 +260,7 @@ async def webhook(request: Request):
     for event in data.get("events", []):
         if event.get("type") == "message" and event["message"]["type"] == "text":
             line_user_id = event["source"]["userId"]
+            print(f"[USERID] {line_user_id}")
             text = event["message"]["text"].strip().upper()
             for staff in staff_list:
                 if staff.get("reg_code") == text and not staff.get("line_user_id"):
