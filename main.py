@@ -123,13 +123,30 @@ async def create_form(request: Request):
 
 
 @app.post("/tasks")
-async def create_task_route(
-    title: str          = Form(...),
-    description: str    = Form(""),
-    assigned_to: int    = Form(...),
-    interval_hours: float = Form(...),
-    deadline: str       = Form(""),
-):
+async def create_task_route(request: Request):
+    form         = await request.form()
+    title        = str(form.get("title", "")).strip()
+    description  = str(form.get("description", ""))
+    assigned_to  = int(form.get("assigned_to", 0))
+    deadline     = str(form.get("deadline", "")) or None
+
+    # รับ interval_hours ได้หลายค่า (radio + text input ชื่อซ้ำกัน) → เอาค่าแรกที่ไม่ว่าง
+    raw_intervals = form.getlist("interval_hours")
+    interval_hours = None
+    for v in raw_intervals:
+        v = str(v).strip()
+        if v:
+            try:
+                interval_hours = float(v)
+                break
+            except ValueError:
+                continue
+    if not interval_hours:
+        interval_hours = 2.0  # default 2 ชั่วโมง
+
+    if not title or not assigned_to:
+        return RedirectResponse("/create", status_code=302)
+
     token = str(uuid.uuid4())
     confirm_url = f"{BASE_URL}/confirm/{token}"
     now = thai_now()
@@ -260,7 +277,6 @@ async def webhook(request: Request):
     for event in data.get("events", []):
         if event.get("type") == "message" and event["message"]["type"] == "text":
             line_user_id = event["source"]["userId"]
-            print(f"[USERID] {line_user_id}")
             text = event["message"]["text"].strip().upper()
             for staff in staff_list:
                 if staff.get("reg_code") == text and not staff.get("line_user_id"):
