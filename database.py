@@ -213,3 +213,10 @@ def is_holiday(date) -> bool:
     row = conn.execute("SELECT 1 FROM holidays WHERE date = ?", (date_str,)).fetchone()
     conn.close()
     return row is not None
+
+
+def reset_staff_line_id(staff_id: int):
+    conn = get_conn()
+    conn.execute("UPDATE staff SET line_user_id = NULL WHERE id = ?", (staff_id,))
+    conn.commit()
+    conn.close()
