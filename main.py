@@ -4,6 +4,7 @@ import hmac
 import hashlib
 import base64
 import json
+import re
 import threading
 import time
 
@@ -18,6 +19,7 @@ from database import (
     update_next_remind, add_staff, update_staff_line_id,
     increment_reminder_count, cancel_task, mark_escalated,
     mark_first_notified, get_holidays, add_holiday, delete_holiday,
+    reset_staff_line_id,
 )
 from line_api import send_task_message, send_text_message
 from utils import thai_now, is_work_time, next_work_start, calc_next_remind
@@ -43,8 +45,6 @@ def reminder_loop():
     while True:
         try:
             now = thai_now()
-
-            # ทำงานเฉพาะช่วง working hours เท่านั้น
             if is_work_time(now):
                 for task in get_due_tasks(now.isoformat()):
                     process_task_reminder(task, now)
@@ -56,23 +56,25 @@ def reminder_loop():
 def process_task_reminder(task, now):
     staff = get_staff_by_id(task["assigned_to"])
 
-    # ─ ยังไม่ได้ส่งการแจ้งเตือนแรก (assign นอกเวลา) ─
+    # ─ ยังไม่ได้ส่งการแจ้งเตือนแรก ─
     if not task["first_notified"]:
         if staff and staff.get("line_user_id"):
             confirm_url = f"{BASE_URL}/confirm/{task['confirm_token']}"
-            send_task_message(
+            sent = send_task_message(
                 to=staff["line_user_id"],
                 title=task["title"],
                 confirm_url=confirm_url,
                 description=task.get("description", ""),
                 is_reminder=False,
             )
+            if not sent:
+                return  # ส่งไม่ได้ → ลองใหม่รอบหน้า ไม่นับครั้ง
         mark_first_notified(task["id"])
         next_remind = calc_next_remind(now, task["interval_hours"])
         update_next_remind(task["id"], next_remind)
         return
 
-    # ─ ถึง max 3 ครั้งแล้ว → escalate หาเจ้านาย ─
+    # ─ ถึง max 3 ครั้งแล้ว → escalate ─
     if task["reminder_count"] >= 3:
         if not task["escalated"]:
             if BOSS_LINE_USER_ID:
@@ -82,32 +84,33 @@ def process_task_reminder(task, now):
                        f"กรุณาติดต่อโดยตรงนะคะ")
                 send_text_message(BOSS_LINE_USER_ID, msg)
             mark_escalated(task["id"])
-        return  # หยุดตามน้องแล้ว
+        return
 
-    # ─ ส่ง reminder ─
+    # ─ ส่ง reminder (เฉพาะถ้าส่งสำเร็จถึงนับครั้ง) ─
     if staff and staff.get("line_user_id"):
         confirm_url = f"{BASE_URL}/confirm/{task['confirm_token']}"
-        send_task_message(
+        sent = send_task_message(
             to=staff["line_user_id"],
             title=task["title"],
             confirm_url=confirm_url,
             description=task.get("description", ""),
             is_reminder=True,
         )
-        increment_reminder_count(task["id"])
-
-    next_remind = calc_next_remind(now, task["interval_hours"])
-    update_next_remind(task["id"], next_remind)
+        if sent:
+            increment_reminder_count(task["id"])
+            next_remind = calc_next_remind(now, task["interval_hours"])
+            update_next_remind(task["id"], next_remind)
+        # ถ้าส่งไม่ได้ → ไม่นับ ไม่เลื่อน next_remind → ลองใหม่รอบหน้า
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    tasks  = get_all_tasks()
-    staff  = get_all_staff()
-    pending    = [t for t in tasks if t["status"] == "pending"]
-    done       = [t for t in tasks if t["status"] == "done"]
-    escalated  = [t for t in tasks if t["status"] == "escalated"]
+    tasks     = get_all_tasks()
+    staff     = get_all_staff()
+    pending   = [t for t in tasks if t["status"] == "pending"]
+    done      = [t for t in tasks if t["status"] == "done"]
+    escalated = [t for t in tasks if t["status"] == "escalated"]
     return templates.TemplateResponse("index.html", {
         "request": request, "tasks": tasks, "staff": staff,
         "pending_count": len(pending), "done_count": len(done),
@@ -124,13 +127,13 @@ async def create_form(request: Request):
 
 @app.post("/tasks")
 async def create_task_route(request: Request):
-    form         = await request.form()
-    title        = str(form.get("title", "")).strip()
-    description  = str(form.get("description", ""))
-    assigned_to  = int(form.get("assigned_to", 0))
-    deadline     = str(form.get("deadline", "")) or None
+    form        = await request.form()
+    title       = str(form.get("title", "")).strip()
+    description = str(form.get("description", ""))
+    assigned_to = int(form.get("assigned_to", 0))
+    deadline    = str(form.get("deadline", "")) or None
 
-    # รับ interval_hours ได้หลายค่า (radio + text input ชื่อซ้ำกัน) → เอาค่าแรกที่ไม่ว่าง
+    # รับ interval_hours ได้หลายค่า → เอาค่าแรกที่ไม่ว่าง
     raw_intervals = form.getlist("interval_hours")
     interval_hours = None
     for v in raw_intervals:
@@ -142,41 +145,41 @@ async def create_task_route(request: Request):
             except ValueError:
                 continue
     if not interval_hours:
-        interval_hours = 2.0  # default 2 ชั่วโมง
+        interval_hours = 2.0
 
     if not title or not assigned_to:
         return RedirectResponse("/create", status_code=302)
 
-    token = str(uuid.uuid4())
+    token       = str(uuid.uuid4())
     confirm_url = f"{BASE_URL}/confirm/{token}"
-    now = thai_now()
+    now         = thai_now()
 
     if is_work_time(now):
-        # ส่งแจ้งทันที + ตั้ง reminder ถัดไป
-        next_remind = calc_next_remind(now, interval_hours)
+        next_remind      = calc_next_remind(now, interval_hours)
         first_notify_now = True
     else:
-        # นอกเวลา → รอ 09:00 วันทำงานถัดไป
-        next_remind = next_work_start(now)
+        next_remind      = next_work_start(now)
         first_notify_now = False
 
     task_id = create_task(
         title, description, assigned_to, interval_hours, token,
         next_remind_at=next_remind,
-        deadline=deadline or None,
+        deadline=deadline,
     )
 
     if first_notify_now:
         staff = get_staff_by_id(assigned_to)
         if staff and staff.get("line_user_id"):
-            send_task_message(
+            sent = send_task_message(
                 to=staff["line_user_id"],
                 title=title,
                 confirm_url=confirm_url,
                 description=description,
                 is_reminder=False,
             )
-        mark_first_notified(task_id)
+            if sent:
+                mark_first_notified(task_id)
+        # ถ้าส่งไม่ได้ → first_notified ยังเป็น 0 → loop จะลองส่งอีกทีเช้าวันถัดไป
 
     return RedirectResponse("/", status_code=302)
 
@@ -197,7 +200,19 @@ async def staff_page(request: Request):
 
 @app.post("/staff")
 async def add_staff_route(name: str = Form(...)):
-    add_staff(name, str(uuid.uuid4())[:8].upper())
+    name = name.strip()
+    if not name:
+        return RedirectResponse("/staff", status_code=302)
+    # เช็ค duplicate ชื่อ
+    existing = [s for s in get_all_staff() if s["name"] == name]
+    if not existing:
+        add_staff(name, str(uuid.uuid4())[:8].upper())
+    return RedirectResponse("/staff", status_code=302)
+
+
+@app.post("/staff/{staff_id}/reset")
+async def reset_staff_line(staff_id: int):
+    reset_staff_line_id(staff_id)
     return RedirectResponse("/staff", status_code=302)
 
 
@@ -278,6 +293,8 @@ async def webhook(request: Request):
         if event.get("type") == "message" and event["message"]["type"] == "text":
             line_user_id = event["source"]["userId"]
             text = event["message"]["text"].strip().upper()
+
+            matched = False
             for staff in staff_list:
                 if staff.get("reg_code") == text and not staff.get("line_user_id"):
                     update_staff_line_id(staff["id"], line_user_id)
@@ -286,7 +303,15 @@ async def webhook(request: Request):
                         f"✅ ลงทะเบียนสำเร็จแล้วค่ะ!\nสวัสดี {staff['name']} 😊\n"
                         f"ระบบจะส่งงานมาให้ที่นี่นะคะ",
                     )
+                    matched = True
                     break
+
+            # รหัสผิด → แจ้งน้อง
+            if not matched and re.match(r'^[A-Z0-9]{8}$', text):
+                send_text_message(
+                    line_user_id,
+                    "❌ ไม่พบรหัสนี้ค่ะ\nกรุณาตรวจสอบรหัส 8 หลักและลองใหม่อีกครั้งนะคะ 🙏"
+                )
 
     return JSONResponse({"status": "ok"})
 
